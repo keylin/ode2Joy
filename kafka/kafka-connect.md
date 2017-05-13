@@ -1,6 +1,6 @@
 ## 8. KAFKA CONNECT
 
-Kafka CONNECT
+> 8. Kafka CONNECT
 
 ### 8.1 Overview
 
@@ -108,7 +108,7 @@ Note that in distributed mode the connector configurations are not passed on the
 
 > 注意，分布式模式下，连接器的配置不是通过命令行传入的，而是通过下面讲到的rest API来创建、修改和销毁连接器。
 
-Configuring Connectors
+#### Configuring Connectors
 
 > 配置连接器
 
@@ -124,7 +124,7 @@ name - Unique name for the connector. Attempting to register again with the same
 
 connector.class - The Java class for the connector
 
-connector.class - 配置连接器对应的java 类
+> connector.class - 配置连接器对应的java 类
 
 tasks.max - The maximum number of tasks that should be created for this connector. The connector may create fewer tasks if it cannot achieve this level of parallelism.
 
@@ -150,7 +150,7 @@ For any other options, you should consult the documentation for the connector.
 
 > 对于其他的选项，你可以查看连接器的文档。
 
-Transformations
+#### Transformations
 
 Connectors can be configured with transformations to make lightweight message-at-a-time modifications. They can be convenient for data massaging and event routing. A transformation chain can be specified in the connector configuration.
 
@@ -197,30 +197,29 @@ After adding the transformations, 们用于标示这个纪录来源是一个 fil
 connect-file-source.properties file looks as following:
 
 connect-file-source.properties 文件如下所示：
+```
+name=local-file-source
 
-​        name=local-file-source
+connector.class=FileStreamSource
 
-​      connector.class=FileStreamSource
+tasks.max=1
 
-​          tasks.max=1
+file=test.txt
 
-​          file=test.txt
+topic=connect-test
 
-​          topic=connect-test
+transforms=MakeMap, InsertSource
 
-​          transforms=MakeMap, InsertSource
+transforms.MakeMap.type=org.apache.kafka.connect.transforms.HoistField$Value
 
-​          transforms.MakeMap.type=org.apache.kafka.connect.transforms.HoistField$Value
+transforms.MakeMap.field=line
+          transforms.InsertSource.type=org.apache.kafka.connect.transforms.InsertField$Value
 
-​          transforms.MakeMap.field=line
+transforms.InsertSource.static.field=data_source
 
-​          transforms.InsertSource.type=org.apache.kafka.connect.transforms.InsertField$Value
+transforms.InsertSource.static.value=test-file-source
+```
 
-​          transforms.InsertSource.static.field=data_source
-
-​          transforms.InsertSource.static.value=test-file-source
-
-​            
 
 All the lines starting with transforms were added for the transformations. You can see the two transformations we created: "InsertSource" and "MakeMap" are aliases that we chose to give the transformations. The transformation types are based on the list of built-in transformations you can see below. Each transformation type has additional configuration: HoistField requires a configuration called "field", which is the name of the field in the map that will include the original String from the file. InsertField transformation lets us specify the field name and the value that we are adding.
 
@@ -229,160 +228,84 @@ All the lines starting with transforms were added for the transformations. You c
 When we ran the file source connector on my sample file without the transformations, and then read them using kafka-console-consumer.sh, the results were:
 
 >现在我们对样例文件运行 file source connector，并且不做转换处理，然后用 kafka-console-consumer.sh，结果如下：
+```
+"foo"
 
-​        "foo"
+"bar"
 
-​          "bar"
-
-​          "hello world"
-
-​           
+"hello world"
+```
 
    We then create a new file connector, this time after adding the transformations to the configuration file. This time, the results will be:
 
 >现在我们创建一个新的file connector，这次我们在配置文件中添加了转换器。这次的结果如下所示：
 
-​        {"line":"foo","data_source":"test-file-source"}
+```
 
-​                {"line":"bar","data_source":"test-file-source"}
+{"line":"foo","data_source":"test-file-source"}
 
-​                {"line":"hello world","data_source":"test-file-source"}
+{"line":"bar","data_source":"test-file-source"}
 
-​            
+{"line":"hello world","data_source":"test-file-source"}
 
+```
 You can see that the lines we've read are now part of a JSON map, and there is an extra field with the static value we specified. This is just one example of what you can do with transformations. Several widely-applicable data and routing transformations are included with Kafka Connect:
 
 >你会看到读取的那一行是json map的一部分，并且添加了我们指定的新字段和静态值。你能用转换器做很多事情，这只是其中的一个例子。Kafka connect已经实现了几个常用的数据处理转换器和路由转换器：
 
-​    InsertField - Add a field using either static data or record metadata
+InsertField - Add a field using either static data or record metadata
 
-​    ReplaceField - Filter or rename fields
+> InsertField - 用静态数据或者记录元数据添加到一个字段中
+
+ReplaceField - Filter or rename fields
+
+> RepaceField - 过滤或者重命名字段
+
 
 MaskField - Replace field with valid null value for the type (0, empty string, etc)
+
+> MaskField - 根据类型替换无效的空值（0，空字符串等等）
 
 ValueToKey
 
 HoistField - Wrap the entire event as a single field inside a Struct or a Map
 
+> HoistField - 把整个事件封装成一个结构体或者map作为一个字段
+
 ExtractField - Extract a specific field from Struct and Map and include only this field in results
+
+> ExtractField - 从一个结构体或者map中提取一个特定的字段，然后只保存这个字段到结果中
 
 SetSchemaMetadata - modify the schema name or version
 
+> SetSchemaMetadata - 修改数据模型的名字或者版本
+
 TimestampRouter - Modify the topic of a record based on original topic and timestamp. Useful when using a sink that needs to write to different tables or indexes based on timestamps
+
+> TimestampRouter - 基于原topic和时间戳修改记录的topic。当一个sink需要基于时间戳写入到不同的表或者索引时非常有用。
 
 RegexpRouter - modify the topic of a record based on original topic, replacement string and a regular expression
 
+> RegexpRouter - 基于原 topic 修改生产新的 topic 记录，可替换字符串或者正则表达式
+
 Details on how to configure each transformation are listed below:
 
-org.apache.kafka.connect.transforms.InsertField
+> 下面详细的展示了如何配置各个转换器：
+
+```org.apache.kafka.connect.transforms.InsertField```
 
 Insert field(s) using attributes from the record metadata or a configured static value.
+>Insert field(s) 使用记录元数据的属性或者配置一个静态字段。
 
-Use the concrete transformation type designed for the record key (org.apache.kafka.connect.transforms.InsertField$Key) or value (org.apache.kafka.connect.transforms.InsertField$Value).
+Use the concrete transformation type designed for the record key 
 
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
+> 
 
-offset.field	Field name for Kafka offset - only applicable to sink connectors.
+(org.apache.kafka.connect.transforms.InsertField$Key) or value (org.apache.kafka.connect.transforms.InsertField$Value).
 
-Suffix with ! to make this a required field, or ? to keep it optional (the default).	string	null		medium
+TODO: 配置表格
 
-partition.field	Field name for Kafka partition. Suffix with ! to make this a required field, or ? to keep it optional (the default).	string	null		medium
-
-static.field	Field name for static data field. Suffix with ! to make this a required field, or ? to keep it optional (the default).	string	null		medium
-
-static.value	Static field value, if field name configured.	string	null		medium
-
-timestamp.field	Field name for record timestamp. Suffix with ! to make this a required field, or ? to keep it optional (the default).	string	null		medium
-
-topic.field	Field name for Kafka topic. Suffix with ! to make this a required field, or ? to keep it optional (the default).	string	null		medium
-
-org.apache.kafka.connect.transforms.ReplaceField
-
-Filter or rename fields.
-
-Use the concrete transformation type designed for the record key (org.apache.kafka.connect.transforms.ReplaceField$Key) or value (org.apache.kafka.connect.transforms.ReplaceField$Value).
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-blacklist	Fields to exclude. This takes precedence over the whitelist.	list	""		medium
-
-renames	Field rename mappings.	list	""	list of colon-delimited pairs, e.g. foo:bar,abc:xyz	medium
-
-whitelist	Fields to include. If specified, only these fields will be used.	list	""		medium
-
-org.apache.kafka.connect.transforms.MaskField
-
-Mask specified fields with a valid null value for the field type (i.e. 0, false, empty string, and so on).
-
-Use the concrete transformation type designed for the record key (org.apache.kafka.connect.transforms.MaskField$Key) or value (org.apache.kafka.connect.transforms.MaskField$Value).
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-fields	Names of fields to mask.	list		non-empty list	high
-
-org.apache.kafka.connect.transforms.ValueToKey
-
-Replace the record key with a new key formed from a subset of fields in the record value.
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-fields	Field names on the record value to extract as the record key.	list		non-empty list	high
-
-org.apache.kafka.connect.transforms.HoistField
-
-Wrap data using the specified field name in a Struct when schema present, or a Map in the case of schemaless data.
-
-Use the concrete transformation type designed for the record key (org.apache.kafka.connect.transforms.HoistField$Key) or value (org.apache.kafka.connect.transforms.HoistField$Value).
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-field	Field name for the single field that will be created in the resulting Struct or Map.	string			medium
-
-org.apache.kafka.connect.transforms.ExtractField
-
-Extract the specified field from a Struct when schema present, or a Map in the case of schemaless data.
-
-Use the concrete transformation type designed for the record key (org.apache.kafka.connect.transforms.ExtractField$Key) or value (org.apache.kafka.connect.transforms.ExtractField$Value).
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-field	Field name to extract.	string			medium
-
-org.apache.kafka.connect.transforms.SetSchemaMetadata
-
-Set the schema name, version or both on the record's key (org.apache.kafka.connect.transforms.SetSchemaMetadata$Key) or value (org.apache.kafka.connect.transforms.SetSchemaMetadata$Value) schema.
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-schema.name	Schema name to set.	string	null		high
-
-schema.version	Schema version to set.	int	null		high
-
-org.apache.kafka.connect.transforms.TimestampRouter
-
-Update the record's topic field as a function of the original topic value and the record timestamp.
-
-This is mainly useful for sink connectors, since the topic field is often used to determine the equivalent entity name in the destination system(e.g. database table or search index name).
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-timestamp.format	Format string for the timestamp that is compatible with java.text.SimpleDateFormat.	string	yyyyMMdd		high
-
-topic.format	Format string which can contain ${topic} and ${timestamp} as placeholders for the topic and timestamp, respectively.	string	${topic}-${timestamp}		high
-
-org.apache.kafka.connect.transforms.RegexRouter
-
-Update the record topic using the configured regular expression and replacement string.
-
-Under the hood, the regex is compiled to a java.util.regex.Pattern. If the pattern matches the input topic, java.util.regex.Matcher#replaceFirst() is used with the replacement string to obtain the new topic.
-
-NAME	DESCRIPTION	TYPE	DEFAULT	VALID VALUES	IMPORTANCE
-
-regex	Regular expression to use for matching.	string		valid regex	high
-
-replacement	Replacement string.	string			high
-
-REST API
+#### REST API
 
 Since Kafka Connect is intended to be run as a service, it also provides a REST API for managing connectors. By default, this service runs on port 8083. The following are the currently supported endpoints:
 
@@ -418,315 +341,284 @@ GET /connector-plugins- return a list of connector plugins installed in the Kafk
 
 PUT /connector-plugins/{connector-type}/config/validate - validate the provided configuration values against the configuration definition. This API performs per config validation, returns suggested values and error messages during validation.
 
-8.3 Connector Development Guide
+### 8.3 Connector Development Guide
 
 This guide describes how developers can write new connectors for Kafka Connect to move data between Kafka and other systems. It briefly reviews a few key concepts and then describes how to create a simple connector.
 
-Core Concepts and APIs
+#### Core Concepts and APIs
 
-Connectors and Tasks
+##### Connectors and Tasks
 
 To copy data between Kafka and another system, users create a Connector for the system they want to pull data from or push data to. Connectors come in two flavors: SourceConnectors import data from another system (e.g. JDBCSourceConnector would import a relational database into Kafka) and SinkConnectors export data (e.g. HDFSSinkConnector would export the contents of a Kafka topic to an HDFS file). Connectors do not perform any data copying themselves: their configuration describes the data to be copied, and the Connector is responsible for breaking that job into a set of Tasks that can be distributed to workers. These Tasks also come in two corresponding flavors: SourceTask and SinkTask. With an assignment in hand, each Task must copy its subset of the data to or from Kafka. In Kafka Connect, it should always be possible to frame these assignments as a set of input and output streams consisting of records with consistent schemas. Sometimes this mapping is obvious: each file in a set of log files can be considered a stream with each parsed line forming a record using the same schema and offsets stored as byte offsets in the file. In other cases it may require more effort to map to this model: a JDBC connector can map each table to a stream, but the offset is less clear. One possible mapping uses a timestamp column to generate queries incrementally returning new data, and the last queried timestamp can be used as the offset.
 
-Streams and Records
+##### Streams and Records
 
 Each stream should be a sequence of key-value records. Both the keys and values can have complex structure -- many primitive types are provided, but arrays, objects, and nested data structures can be represented as well. The runtime data format does not assume any particular serialization format; this conversion is handled internally by the framework. In addition to the key and value, records (both those generated by sources and those delivered to sinks) have associated stream IDs and offsets. These are used by the framework to periodically commit the offsets of data that have been processed so that in the event of failures, processing can resume from the last committed offsets, avoiding unnecessary reprocessing and duplication of events.
 
-Dynamic Connectors
+##### Dynamic Connectors
 
 Not all jobs are static, so Connector implementations are also responsible for monitoring the external system for any changes that might require reconfiguration. For example, in the JDBCSourceConnector example, the Connector might assign a set of tables to each Task. When a new table is created, it must discover this so it can assign the new table to one of the Tasks by updating its configuration. When it notices a change that requires reconfiguration (or a change in the number of Tasks), it notifies the framework and the framework updates any corresponding Tasks.
 
-Developing a Simple Connector
+#### Developing a Simple Connector
 
 Developing a connector only requires implementing two interfaces, the Connector and Task. A simple example is included with the source code for Kafka in the file package. This connector is meant for use in standalone mode and has implementations of a SourceConnector/SourceTask to read each line of a file and emit it as a record and a SinkConnector/SinkTask that writes each record to a file. The rest of this section will walk through some code to demonstrate the key steps in creating a connector, but developers should also refer to the full example source code as many details are omitted for brevity.
 
-Connector Example
+##### Connector Example
 
 We'll cover the SourceConnector as a simple example. SinkConnector implementations are very similar. Start by creating the class that inherits from SourceConnector and add a couple of fields that will store parsed configuration information (the filename to read from and the topic to send data to):
 
-​    public class FileStreamSourceConnector extends SourceConnector {
+```
+    public class FileStreamSourceConnector extends SourceConnector {
 
-​            private String filename;
+            private String filename;
 
-​                private String topic;
+            private String topic;
+```
 
-​            
+The easiest method to fill in is getTaskClass(), which defines the class that should be instantiated in worker processes to actually read the data:
 
-​    The easiest method to fill in is getTaskClass(), which defines the class that should be instantiated in worker processes to actually read the data:
+```java
+    @Override
 
-​    @Override
+        public Class<? extends Task> getTaskClass() {
+            return FileStreamSourceTask.class;
+            }
+```
 
-​        public Class<? extends Task> getTaskClass() {
+We will define the FileStreamSourceTask class below. Next, we add some standard lifecycle methods, start() and stop():
 
-​            return FileStreamSourceTask.class;
+```java
+    @Override
 
-​            }
+        public void start(Map<String, String> props) {
 
-​        
+            // The complete version includes error handling as well.
 
-​    We will define the FileStreamSourceTask class below. Next, we add some standard lifecycle methods, start() and stop():
+                filename = props.get(FILE_CONFIG);
 
-​    @Override
+                topic = props.get(TOPIC_CONFIG);
 
-​        public void start(Map<String, String> props) {
+            }
 
-​            // The complete version includes error handling as well.
+            
 
-​                filename = props.get(FILE_CONFIG);
+    @Override
 
-​                topic = props.get(TOPIC_CONFIG);
+        public void stop() {
 
-​            }
+            // Nothing to do since no background monitoring is required.
 
-​            
+            }
+```
 
-​    @Override
+Finally, the real core of the implementation is in taskConfigs(). In this case we are only handling a single file, so even though we may be permitted to generate more tasks as per the maxTasks argument, we return a list with only one entry:
 
-​        public void stop() {
+```java
+    @Override
+        public List<Map<String, String>> taskConfigs(int maxTasks) {
 
-​            // Nothing to do since no background monitoring is required.
+            ArrayList<Map<String, String>> configs = new ArrayList<>();
 
-​            }
+                // Only one input stream makes sense.
 
-​        
+                Map<String, String> config = new HashMap<>();
 
-​    Finally, the real core of the implementation is in taskConfigs(). In this case we are only handling a single file, so even though we may be permitted to generate more tasks as per the maxTasks argument, we return a list with only one entry:
+                if (filename != null)
 
-​    @Override
+                    config.put(FILE_CONFIG, filename);
 
-​        public List<Map<String, String>> taskConfigs(int maxTasks) {
+                    config.put(TOPIC_CONFIG, topic);
 
-​            ArrayList<Map<String, String>> configs = new ArrayList<>();
+                configs.add(config);
 
-​                // Only one input stream makes sense.
+                return configs;
 
-​                Map<String, String> config = new HashMap<>();
+            }
+       
+```
 
-​                if (filename != null)
+Although not used in the example, SourceTask also provides two APIs to commit offsets in the source system: commit and commitRecord. The APIs are provided for source systems which have an acknowledgement mechanism for messages. Overriding these methods allows the source connector to acknowledge messages in the source system, either in bulk or individually, once they have been written to Kafka. The commit API stores the offsets in the source system, up to the offsets that have been returned by poll. The implementation of this API should block until the commit is complete. The commitRecord API saves the offset in the source system for each SourceRecord after it is written to Kafka. As Kafka Connect will record offsets automatically, SourceTasks are not required to implement them. In cases where a connector does need to acknowledge messages in the source system, only one of the APIs is typically required. Even with multiple tasks, this method implementation is usually pretty simple. It just has to determine the number of input tasks, which may require contacting the remote service it is pulling data from, and then divvy them up. Because some patterns for splitting work among tasks are so common, some utilities are provided in ConnectorUtils to simplify these cases. Note that this simple example does not include dynamic input. See the discussion in the next section for how to trigger updates to task configs.
 
-​                    config.put(FILE_CONFIG, filename);
-
-​                    config.put(TOPIC_CONFIG, topic);
-
-​                configs.add(config);
-
-​                return configs;
-
-​            }
-
-​        
-
-​    Although not used in the example, SourceTask also provides two APIs to commit offsets in the source system: commit and commitRecord. The APIs are provided for source systems which have an acknowledgement mechanism for messages. Overriding these methods allows the source connector to acknowledge messages in the source system, either in bulk or individually, once they have been written to Kafka. The commit API stores the offsets in the source system, up to the offsets that have been returned by poll. The implementation of this API should block until the commit is complete. The commitRecord API saves the offset in the source system for each SourceRecord after it is written to Kafka. As Kafka Connect will record offsets automatically, SourceTasks are not required to implement them. In cases where a connector does need to acknowledge messages in the source system, only one of the APIs is typically required. Even with multiple tasks, this method implementation is usually pretty simple. It just has to determine the number of input tasks, which may require contacting the remote service it is pulling data from, and then divvy them up. Because some patterns for splitting work among tasks are so common, some utilities are provided in ConnectorUtils to simplify these cases. Note that this simple example does not include dynamic input. See the discussion in the next section for how to trigger updates to task configs.
-
-​    Task Example - Source Task
-
-​    
+##### Task Example - Source Task
 
 Next we'll describe the implementation of the corresponding SourceTask. The implementation is short, but too long to cover completely in this guide. We'll use pseudo-code to describe most of the implementation, but you can refer to the source code for the full example. Just as with the connector, we need to create a class inheriting from the appropriate base Task class. It also has some standard lifecycle methods:
+```java
+    public class FileStreamSourceTask extends SourceTask {
+           String filename;
+           InputStream stream;
+           String topic;                
 
-​    public class FileStreamSourceTask extends SourceTask {
+        @Override
+      public void start(Map<String, String> props) {
 
-​            String filename;
+        filename = props.get(FileStreamSourceConnector.FILE_CONFIG);
 
-​                InputStream stream;
+        stream = openOrThrowError(filename);
 
-​                String topic;
+        topic = props.get(FileStreamSourceConnector.TOPIC_CONFIG);
 
-​                
+      }
 
-​        @Override
+        @Override
+      public synchronized void stop() {
 
-​                public void start(Map<String, String> props) {
+        stream.close();
 
-​                    filename = props.get(FileStreamSourceConnector.FILE_CONFIG);
+      }
+```
 
-​                        stream = openOrThrowError(filename);
+These are slightly simplified versions, but show that that these methods should be relatively simple and the only work they should perform is allocating or freeing resources. There are two points to note about this implementation. First, the start() method does not yet handle resuming from a previous offset, which will be addressed in a later section. Second, the stop() method is synchronized. This will be necessary because SourceTasks are given a dedicated thread which they can block indefinitely, so they need to be stopped with a call from a different thread in the Worker. Next, we implement the main functionality of the task, the poll() method which gets events from the input system and returns a List<SourceRecord>:
 
-​                        topic = props.get(FileStreamSourceConnector.TOPIC_CONFIG);
+```java
+    @Override
 
-​                    }
+        public List<SourceRecord> poll() throws InterruptedException {
 
-​                    
+            try {
 
-​        @Override
+                    ArrayList<SourceRecord> records = new ArrayList<>();
 
-​                public synchronized void stop() {
+                        while (streamValid(stream) && records.isEmpty()) {
 
-​                    stream.close();
+                            LineAndOffset line = readToNextLine(stream);
 
-​                    }
+                                if (line != null) {
 
-​            
+                                    Map<String, Object> sourcePartition = Collections.singletonMap("filename", filename);
 
-​    These are slightly simplified versions, but show that that these methods should be relatively simple and the only work they should perform is allocating or freeing resources. There are two points to note about this implementation. First, the start() method does not yet handle resuming from a previous offset, which will be addressed in a later section. Second, the stop() method is synchronized. This will be necessary because SourceTasks are given a dedicated thread which they can block indefinitely, so they need to be stopped with a call from a different thread in the Worker. Next, we implement the main functionality of the task, the poll() method which gets events from the input system and returns a List<SourceRecord>:
+                                        Map<String, Object> sourceOffset = Collections.singletonMap("position", streamOffset);
 
-​    @Override
+                                        records.add(new SourceRecord(sourcePartition, sourceOffset, topic, Schema.STRING_SCHEMA, line));
 
-​        public List<SourceRecord> poll() throws InterruptedException {
+                                    } else {
 
-​            try {
+                                    Thread.sleep(1);
 
-​                    ArrayList<SourceRecord> records = new ArrayList<>();
+                                    }
 
-​                        while (streamValid(stream) && records.isEmpty()) {
+                            }
 
-​                            LineAndOffset line = readToNextLine(stream);
+                        return records;
 
-​                                if (line != null) {
+                    } catch (IOException e) {
 
-​                                    Map<String, Object> sourcePartition = Collections.singletonMap("filename", filename);
+                    // Underlying stream was killed, probably as a result of calling stop. Allow to return
 
-​                                        Map<String, Object> sourceOffset = Collections.singletonMap("position", streamOffset);
+                        // null, and driving thread will handle any shutdown if necessary.
 
-​                                        records.add(new SourceRecord(sourcePartition, sourceOffset, topic, Schema.STRING_SCHEMA, line));
+                    }
 
-​                                    } else {
+                return null;
 
-​                                    Thread.sleep(1);
+            }
+```
 
-​                                    }
+Again, we've omitted some details, but we can see the important steps: the poll() method is going to be called repeatedly, and for each call it will loop trying to read records from the file. For each line it reads, it also tracks the file offset. It uses this information to create an output SourceRecord with four pieces of information: the source partition (there is only one, the single file being read), source offset (byte offset in the file), output topic name, and output value (the line, and we include a schema indicating this value will always be a string). Other variants of the SourceRecord constructor can also include a specific output partition and a key. Note that this implementation uses the normal Java InputStream interface and may sleep if data is not available. This is acceptable because Kafka Connect provides each task with a dedicated thread. While task implementations have to conform to the basic poll() interface, they have a lot of flexibility in how they are implemented. In this case, an NIO-based implementation would be more efficient, but this simple approach works, is quick to implement, and is compatible with older versions of Java.
 
-​                            }
-
-​                        return records;
-
-​                    } catch (IOException e) {
-
-​                    // Underlying stream was killed, probably as a result of calling stop. Allow to return
-
-​                        // null, and driving thread will handle any shutdown if necessary.
-
-​                    }
-
-​                return null;
-
-​            }
-
-​        
-
-​    Again, we've omitted some details, but we can see the important steps: the poll() method is going to be called repeatedly, and for each call it will loop trying to read records from the file. For each line it reads, it also tracks the file offset. It uses this information to create an output SourceRecord with four pieces of information: the source partition (there is only one, the single file being read), source offset (byte offset in the file), output topic name, and output value (the line, and we include a schema indicating this value will always be a string). Other variants of the SourceRecord constructor can also include a specific output partition and a key. Note that this implementation uses the normal Java InputStream interface and may sleep if data is not available. This is acceptable because Kafka Connect provides each task with a dedicated thread. While task implementations have to conform to the basic poll() interface, they have a lot of flexibility in how they are implemented. In this case, an NIO-based implementation would be more efficient, but this simple approach works, is quick to implement, and is compatible with older versions of Java.
-
-​    Sink Tasks
-
-​    
+##### Sink Tasks
 
 The previous section described how to implement a simple SourceTask. Unlike SourceConnector and SinkConnector, SourceTask and SinkTask have very different interfaces because SourceTask uses a pull interface and SinkTask uses a push interface. Both share the common lifecycle methods, but the SinkTask interface is quite different:
 
-​    public abstract class SinkTask implements Task {
+```java
+    public abstract class SinkTask implements Task {
 
-​            public void initialize(SinkTaskContext context) {
+            public void initialize(SinkTaskContext context) {
 
-​                    this.context = context;
+                    this.context = context;
 
-​                    }
+                    }              
 
-​                    
+        public abstract void put(Collection<SinkRecord> records);
+      
+        public abstract void flush(Map<TopicPartition, Long> offsets);
+```
 
-​        public abstract void put(Collection<SinkRecord> records);
+The SinkTask documentation contains full details, but this interface is nearly as simple as the SourceTask. The put() method should contain most of the implementation, accepting sets of SinkRecords, performing any required translation, and storing them in the destination system. This method does not need to ensure the data has been fully written to the destination system before returning. In fact, in many cases internal buffering will be useful so an entire batch of records can be sent at once, reducing the overhead of inserting events into the downstream data store. The SinkRecords contain essentially the same information as SourceRecords: Kafka topic, partition, offset and the event key and value. The flush() method is used during the offset commit process, which allows tasks to recover from failures and resume from a safe point such that no events will be missed. The method should push any outstanding data to the destination system and then block until the write has been acknowledged. The offsets parameter can often be ignored, but is useful in some cases where implementations want to store offset information in the destination store to provide exactly-once delivery. For example, an HDFS connector could do this and use atomic move operations to make sure the flush() operation atomically commits the data and offsets to a final location in HDFS.
 
-​                
-
-​                public abstract void flush(Map<TopicPartition, Long> offsets);
-
-​            
-
-​    The SinkTask documentation contains full details, but this interface is nearly as simple as the SourceTask. The put() method should contain most of the implementation, accepting sets of SinkRecords, performing any required translation, and storing them in the destination system. This method does not need to ensure the data has been fully written to the destination system before returning. In fact, in many cases internal buffering will be useful so an entire batch of records can be sent at once, reducing the overhead of inserting events into the downstream data store. The SinkRecords contain essentially the same information as SourceRecords: Kafka topic, partition, offset and the event key and value. The flush() method is used during the offset commit process, which allows tasks to recover from failures and resume from a safe point such that no events will be missed. The method should push any outstanding data to the destination system and then block until the write has been acknowledged. The offsets parameter can often be ignored, but is useful in some cases where implementations want to store offset information in the destination store to provide exactly-once delivery. For example, an HDFS connector could do this and use atomic move operations to make sure the flush() operation atomically commits the data and offsets to a final location in HDFS.
-
-​    Resuming from Previous Offsets
-
-​    
+##### Resuming from Previous Offsets
 
 The SourceTask implementation included a stream ID (the input filename) and offset (position in the file) with each record. The framework uses this to commit offsets periodically so that in the case of a failure, the task can recover and minimize the number of events that are reprocessed and possibly duplicated (or to resume from the most recent offset if Kafka Connect was stopped gracefully, e.g. in standalone mode or due to a job reconfiguration). This commit process is completely automated by the framework, but only the connector knows how to seek back to the right position in the input stream to resume from that location. To correctly resume upon startup, the task can use the SourceContext passed into its initialize() method to access the offset data. In initialize(), we would add a bit more code to read the offset (if it exists) and seek to that position:
 
-​        stream = new FileInputStream(filename);
+```java
+        stream = new FileInputStream(filename);
 
-​                Map<String, Object> offset = context.offsetStorageReader().offset(Collections.singletonMap(FILENAME_FIELD, filename));
+                Map<String, Object> offset = context.offsetStorageReader().offset(Collections.singletonMap(FILENAME_FIELD, filename));
 
-​                if (offset != null) {
+                if (offset != null) {
 
-​                    Long lastRecordedOffset = (Long) offset.get("position");
+                    Long lastRecordedOffset = (Long) offset.get("position");
 
-​                        if (lastRecordedOffset != null)
+                        if (lastRecordedOffset != null)
 
-​                            seekToOffset(stream, lastRecordedOffset);
+                            seekToOffset(stream, lastRecordedOffset);
 
-​                        }
+                        }
+```
 
-​            
+Of course, you might need to read many keys for each of the input streams. The OffsetStorageReader interface also allows you to issue bulk reads to efficiently load all offsets, then apply them by seeking each input stream to the appropriate position.
 
-​    Of course, you might need to read many keys for each of the input streams. The OffsetStorageReader interface also allows you to issue bulk reads to efficiently load all offsets, then apply them by seeking each input stream to the appropriate position.
-
-​    Dynamic Input/Output Streams
-
-​    
+##### Dynamic Input/Output Streams
 
 Kafka Connect is intended to define bulk data copying jobs, such as copying an entire database rather than creating many jobs to copy each table individually. One consequence of this design is that the set of input or output streams for a connector can vary over time. Source connectors need to monitor the source system for changes, e.g. table additions/deletions in a database. When they pick up changes, they should notify the framework via the ConnectorContext object that reconfiguration is necessary. For example, in a SourceConnector:
 
-​        if (inputsChanged())
+```java
+        if (inputsChanged())
+                    this.context.requestTaskReconfiguration();
+```
 
-​                    this.context.requestTaskReconfiguration();
+The framework will promptly request new configuration information and update the tasks, allowing them to gracefully commit their progress before reconfiguring them. Note that in the SourceConnector this monitoring is currently left up to the connector implementation. If an extra thread is required to perform this monitoring, the connector must allocate it itself. Ideally this code for monitoring changes would be isolated to the Connector and tasks would not need to worry about them. However, changes can also affect tasks, most commonly when one of their input streams is destroyed in the input system, e.g. if a table is dropped from a database. If the Task encounters the issue before the Connector, which will be common if the Connector needs to poll for changes, the Task will need to handle the subsequent error. Thankfully, this can usually be handled simply by catching and handling the appropriate exception. SinkConnectors usually only have to handle the addition of streams, which may translate to new entries in their outputs (e.g., a new database table). The framework manages any changes to the Kafka input, such as when the set of input topics changes because of a regex subscription. SinkTasks should expect new input streams, which may require creating new resources in the downstream system, such as a new table in a database. The trickiest situation to handle in these cases may be conflicts between multiple SinkTasks seeing a new input stream for the first time and simultaneously trying to create the new resource. SinkConnectors, on the other hand, will generally require no special code for handling a dynamic set of streams.
 
-​                
-
-​    The framework will promptly request new configuration information and update the tasks, allowing them to gracefully commit their progress before reconfiguring them. Note that in the SourceConnector this monitoring is currently left up to the connector implementation. If an extra thread is required to perform this monitoring, the connector must allocate it itself. Ideally this code for monitoring changes would be isolated to the Connector and tasks would not need to worry about them. However, changes can also affect tasks, most commonly when one of their input streams is destroyed in the input system, e.g. if a table is dropped from a database. If the Task encounters the issue before the Connector, which will be common if the Connector needs to poll for changes, the Task will need to handle the subsequent error. Thankfully, this can usually be handled simply by catching and handling the appropriate exception. SinkConnectors usually only have to handle the addition of streams, which may translate to new entries in their outputs (e.g., a new database table). The framework manages any changes to the Kafka input, such as when the set of input topics changes because of a regex subscription. SinkTasks should expect new input streams, which may require creating new resources in the downstream system, such as a new table in a database. The trickiest situation to handle in these cases may be conflicts between multiple SinkTasks seeing a new input stream for the first time and simultaneously trying to create the new resource. SinkConnectors, on the other hand, will generally require no special code for handling a dynamic set of streams.
-
-​    Connect Configuration Validation
-
-​    
+##### Connect Configuration Validation
 
 Kafka Connect allows you to validate connector configurations before submitting a connector to be executed and can provide feedback about errors and recommended values. To take advantage of this, connector developers need to provide an implementation of config() to expose the configuration definition to the framework. The following code in FileStreamSourceConnector defines the configuration and exposes it to the framework.
 
-​        private static final ConfigDef CONFIG_DEF = new ConfigDef()
+```java
+        private static final ConfigDef CONFIG_DEF = new ConfigDef()
 
-​                    .define(FILE_CONFIG, Type.STRING, Importance.HIGH, "Source filename.")
+                    .define(FILE_CONFIG, Type.STRING, Importance.HIGH, "Source filename.")
 
-​                        .define(TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to publish data to");
+                        .define(TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to publish data to");
 
-​                        
+                        
 
-​        public ConfigDef config() {
+        public ConfigDef config() {
 
-​                    return CONFIG_DEF;
+                    return CONFIG_DEF;
 
-​                    }
+                    }
 
-​            
+```
 
-​    ConfigDef class is used for specifying the set of expected configurations. For each configuration, you can specify the name, the type, the default value, the documentation, the group information, the order in the group, the width of the configuration value and the name suitable for display in the UI. Plus, you can provide special validation logic used for single configuration validation by overriding the Validator class. Moreover, as there may be dependencies between configurations, for example, the valid values and visibility of a configuration may change according to the values of other configurations. To handle this, ConfigDef allows you to specify the dependents of a configuration and to provide an implementation of Recommender to get valid values and set visibility of a configuration given the current configuration values. Also, the validate() method in Connector provides a default validation implementation which returns a list of allowed configurations together with configuration errors and recommended values for each configuration. However, it does not use the recommended values for configuration validation. You may provide an override of the default implementation for customized configuration validation, which may use the recommended values.
+ConfigDef class is used for specifying the set of expected configurations. For each configuration, you can specify the name, the type, the default value, the documentation, the group information, the order in the group, the width of the configuration value and the name suitable for display in the UI. Plus, you can provide special validation logic used for single configuration validation by overriding the Validator class. Moreover, as there may be dependencies between configurations, for example, the valid values and visibility of a configuration may change according to the values of other configurations. To handle this, ConfigDef allows you to specify the dependents of a configuration and to provide an implementation of Recommender to get valid values and set visibility of a configuration given the current configuration values. Also, the validate() method in Connector provides a default validation implementation which returns a list of allowed configurations together with configuration errors and recommended values for each configuration. However, it does not use the recommended values for configuration validation. You may provide an override of the default implementation for customized configuration validation, which may use the recommended values.
 
-​    Working with Schemas
-
-​    
+##### Working with Schemas
 
 The FileStream connectors are good examples because they are simple, but they also have trivially structured data -- each line is just a string. Almost all practical connectors will need schemas with more complex data formats. To create more complex data, you'll need to work with the Kafka Connect data API. Most structured records will need to interact with two classes in addition to primitive types: Schema and Struct. The API documentation provides a complete reference, but here is a simple example creating a Schema and Struct:
 
-​    Schema schema = SchemaBuilder.struct().name(NAME)
+```java
+    Schema schema = SchemaBuilder.struct().name(NAME)
 
-​            .field("name", Schema.STRING_SCHEMA)
+            .field("name", Schema.STRING_SCHEMA)
 
-​                .field("age", Schema.INT_SCHEMA)
+                .field("age", Schema.INT_SCHEMA)
 
-​                .field("admin", new SchemaBuilder.boolean().defaultValue(false).build())
+                .field("admin", new SchemaBuilder.boolean().defaultValue(false).build())
 
-​                .build();
+                .build();
 
-​                
+    Struct struct = new Struct(schema)
 
-​    Struct struct = new Struct(schema)
+            .put("name", "Barbara Liskov")
 
-​            .put("name", "Barbara Liskov")
+            .put("age", 75);
+```
 
-​                .put("age", 75);
-
-​            
-
-​    If you are implementing a source connector, you'll need to decide when and how to create schemas. Where possible, you should avoid recomputing them as much as possible. For example, if your connector is guaranteed to have a fixed schema, create it statically and reuse a single instance. However, many connectors will have dynamic schemas. One simple example of this is a database connector. Considering even just a single table, the schema will not be predefined for the entire connector (as it varies from table to table). But it also may not be fixed for a single table over the lifetime of the connector since the user may execute an ALTER TABLE command. The connector must be able to detect these changes and react appropriately. Sink connectors are usually simpler because they are consuming data and therefore do not need to create schemas. However, they should take just as much care to validate that the schemas they receive have the expected format. When the schema does not match -- usually indicating the upstream producer is generating invalid data that cannot be correctly translated to the destination system -- sink connectors should throw an exception to indicate this error to the system.
+​ If you are implementing a source connector, you'll need to decide when and how to create schemas. Where possible, you should avoid recomputing them as much as possible. For example, if your connector is guaranteed to have a fixed schema, create it statically and reuse a single instance. However, many connectors will have dynamic schemas. One simple example of this is a database connector. Considering even just a single table, the schema will not be predefined for the entire connector (as it varies from table to table). But it also may not be fixed for a single table over the lifetime of the connector since the user may execute an ALTER TABLE command. The connector must be able to detect these changes and react appropriately. Sink connectors are usually simpler because they are consuming data and therefore do not need to create schemas. However, they should take just as much care to validate that the schemas they receive have the expected format. When the schema does not match -- usually indicating the upstream producer is generating invalid data that cannot be correctly translated to the destination system -- sink connectors should throw an exception to indicate this error to the system.
 
 >如果你实现了一个 source 连接器，你需要决定何时且怎样创建数据模型。可能的话，你最好尽可能避免重新计算和生成。例如，如果你的连接器保证有一个固定的数据模型，创建一个静态的，然后复用这个实例。然而，许多连接器需要一个动态模型。举个简单的例子就是数据库连接器。考虑到只有一个多单表，这个模型无法对整个连接器的做预定义（因为每个表都是变量）。但是在连接器使用过程中，要求只能应对一个单表也是不合适的，因为用户可能需要执行切换表的操作。这个连接器必须能够侦测到变化并且做出正确的应对。sink 连接器通常是简单的，因为他们只是消费数据因此不需要创建模型。然而，他们应该尽可能的去校验这个数据模型是否是他们需要的数据格式。当数据模型不匹配时，通常就表明上游在生产不符合格式的数据，而这些数据无法正确处理传递到下游目标系统，这个时候sink连接器应该抛出异常表明系统错误。
 
-Kafka Connect Administration
-
-Kafka Connect 管理
+#### Kafka Connect Administration
+> Kafka Connect 管理
 
 Kafka Connect's REST layer provides a set of APIs to enable administration of the cluster. This includes APIs to view the configuration of connectors and the status of their tasks, as well as to alter their current behavior (e.g. changing configuration and restarting tasks).
 
@@ -734,47 +626,43 @@ Kafka Connect's REST layer provides a set of APIs to enable administration of th
 
 When a connector is first submitted to the cluster, the workers rebalance the full set of connectors in the cluster and their tasks so that each worker has approximately the same amount of work. This same rebalancing procedure is also used when connectors increase or decrease the number of tasks they require, or when a connector's configuration is changed. You can use the REST API to view the current status of a connector and its tasks, including the id of the worker to which each was assigned. For example, querying the status of a file source (using GET /connectors/file-source/status) might produce output like the following:
 
-​    {
+> 当连接器第一次提交到集群中，集群中的 workers 需要重新平衡整个集群中的连接器和任务，使得每个 worker 有大致相同数量的工作。当连接器的任务数增加或减少，又或连接器的配置发生改变，都会触发这个重平衡过程。你可以通过 REST API 来查看当前连接器及其任务的状态，包括任务所属的 worker id。例如，查询一个 file source 的状态（使用  GET /connectors/file-source/status）可能获得如下输出：
 
-​        "name": "file-source",
-
-​        "connector": {
-
-​            "state": "RUNNING",
-
-​                "worker_id": "192.168.1.208:8083"
-
-​            },
-
-​        "tasks": [
-
-​            {
-
-​                "id": 0,
-
-​                "state": "RUNNING",
-
-​                "worker_id": "192.168.1.209:8083"
-
-​                }
-
-​            ]
-
-​        }
-
-​        
-
-​    Connectors and their tasks publish status updates to a shared topic (configured with status.storage.topic) which all workers in the cluster monitor. Because the workers consume this topic asynchronously, there is typically a (short) delay before a state change is visible through the status API. The following states are possible for a connector or one of its tasks:
+```
+{
+    "name": "file-source",
+    "connector": {
+        "state": "RUNNING",
+        "worker_id": "192.168.1.208:8083"
+    },
+    "tasks": [
+        {
+            "id": 0,
+            "state": "RUNNING",
+            "worker_id": "192.168.1.209:8083"
+        }
+    ]
+}
+```
+Connectors and their tasks publish status updates to a shared topic (configured with status.storage.topic) which all workers in the cluster monitor. Because the workers consume this topic asynchronously, there is typically a (short) delay before a state change is visible through the status API. The following states are possible for a connector or one of its tasks:
 
 >连接器和连接器中的任务发布状态到一个Kafka topic中（配置在 status.storage.topic），是整个集群中所有worker的监视器。因为worker是以异步的方式消费这个topic，所有通过 status API 获取的状态信息会有较短时间的延迟。连接器或连接器的任务可能有如下状态：
 
 UNASSIGNED: The connector/task has not yet been assigned to a worker.
 
+> UNASSIGNED: 当前 connector／task 还没有分配到worker。
+
 RUNNING: The connector/task is running.
+
+> RUNNING: 当前 connector／task 运行中。
 
 PAUSED: The connector/task has been administratively paused.
 
+> PAUSED: 当前 connector／task 已经被管理中指。
+
 FAILED: The connector/task has failed (usually by raising an exception, which is reported in the status output).
+
+> FAILED：这个 connector／task 已经失败（通常会捕获到异常，这个异常会展示在状态输出中）
 
 In most cases, connector and task states will match, though they may be different for short periods of time when changes are occurring or if tasks have failed. For example, when a connector is first started, there may be a noticeable delay before the connector and its tasks have all transitioned to the RUNNING state. States will also diverge when tasks fail since Connect does not automatically restart failed tasks. To restart a connector/task manually, you can use the restart APIs listed above. Note that if you try to restart a task while a rebalance is taking place, Connect will return a 409 (Conflict) status code. You can retry after the rebalance completes, but it might not be necessary since rebalances effectively restart all the connectors and tasks in the cluster.
 
