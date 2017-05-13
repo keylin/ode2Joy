@@ -309,37 +309,71 @@ TODO: 配置表格
 
 Since Kafka Connect is intended to be run as a service, it also provides a REST API for managing connectors. By default, this service runs on port 8083. The following are the currently supported endpoints:
 
+> Kafka Connect 要做成服务化，因此它提供了 REST API 来管理连接器。默认情况，这个服务运行在8083端口上。下面是目前已经提供了的借口。
+
 GET /connectors - return a list of active connectors
+
+> GET /connectors - 返回活跃连接器列表
 
 POST /connectors - create a new connector; the request body should be a JSON object containing a string name field and an object config field with the connector configuration parameters
 
+> POST /connectors - 创建一个新的连击器；请求内容是一个包含了连接器名称字段和连接器详细配置的 json 对象。
+
 GET /connectors/{name} - get information about a specific connector
+
+> GET /connectors/{name} - 返回指定连接器的信息
 
 GET /connectors/{name}/config - get the configuration parameters for a specific connector
 
+> GET /connectors/{name}/config - 获取指定连接器的配置参数
+
 PUT /connectors/{name}/config - update the configuration parameters for a specific connector
+
+> PUT /connectors/{name}/config - 更新特定连接器的配置参数
 
 GET /connectors/{name}/status - get current status of the connector, including if it is running, failed, paused, etc., which worker it is assigned to, error information if it has failed, and the state of all its tasks
 
+> GET /connectors/{name}/status - 获取当前连击器的状态，包括是否运行中、已失败、已中止等等，分配到哪个worker，导致失败的报错信息，还有这个连接器所有任务的状态
+
 GET /connectors/{name}/tasks - get a list of tasks currently running for a connector
+
+> GET /connectors/{name}/tasks - 获取连接器当前运行中的任务列表
 
 GET /connectors/{name}/tasks/{taskid}/status - get current status of the task, including if it is running, failed, paused, etc., which worker it is assigned to, and error information if it has failed
 
+> GET /connectors/{name}/tasks/{taskid}/status - 获取当前任务的状态，包括是否运行中、有故障、已中止等等，分配到哪个worker，导致失败的报错信息
+
 PUT /connectors/{name}/pause - pause the connector and its tasks, which stops message processing until the connector is resumed
+
+> PUT /connectors/{name}/pause - 停止连接器和它的任务，这个操作会停止连接器消息处理，直到该连接器被恢复
 
 PUT /connectors/{name}/resume - resume a paused connector (or do nothing if the connector is not paused)
 
+> PUT /connectors/{name}/resume - 恢复一个停止了的连接器（或者什么也不做，如果这个连接器没有停止）
+
 POST /connectors/{name}/restart - restart a connector (typically because it has failed)
+
+> POST /connectors/{name}/restart - 重启指定的连接器（特别是当连接器出故障以后）
 
 POST /connectors/{name}/tasks/{taskId}/restart - restart an individual task (typically because it has failed)
 
+> POST /connectors/{name}/tasks/{taskId}/restart - 重启单独的任务（特别是当任务出问题以后）
+
 DELETE /connectors/{name} - delete a connector, halting all tasks and deleting its configuration
 
-Kafka Connect also provides a REST API for getting information about connector plugins:
+> DELETE /connectors/{name} - 删除一个连接器，停止该连接器下的所有任务，并且删除它的配置
+
+**Kafka Connect also provides a REST API for getting information about connector plugins:**
+
+> Kafka Connect 也提供RESRT API 来获取连接器插件的信息：
 
 GET /connector-plugins- return a list of connector plugins installed in the Kafka Connect cluster. Note that the API only checks for connectors on the worker that handles the request, which means you may see inconsistent results, especially during a rolling upgrade if you add new connector jars
 
+> GET /connector-plugins - 返回 Kafka Connect cluster 已安装插件的列表。注意，这个API 只会获取处理这个请求的worker 上的连接器，这意味着你有可能获取到不一致的结果，尤其是在滚动升级期间你正在添加一个新连接器的 jar包
+
 PUT /connector-plugins/{connector-type}/config/validate - validate the provided configuration values against the configuration definition. This API performs per config validation, returns suggested values and error messages during validation.
+
+> PUT /connector-plugins/{connector-type}/config/validate - 根据配置定义来校验配置参数值。这个 API 会对每个连接器参数做校验，在校验结果中返回建议的参数值和错误信息。
 
 ### 8.3 Connector Development Guide
 
