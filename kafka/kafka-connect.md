@@ -379,11 +379,15 @@ PUT /connector-plugins/{connector-type}/config/validate - validate the provided 
 
 This guide describes how developers can write new connectors for Kafka Connect to move data between Kafka and other systems. It briefly reviews a few key concepts and then describes how to create a simple connector.
 
+> 这个指南描述了开发者如何实现一个连接器，在 Kafka Connect 中用这个连接器来做 Kafka 和其他系统之间的数据迁移。 下面的内容简要的涉及了一些关键的概念，然后演示如何实现一个简单的连接器。
+
 #### Core Concepts and APIs
 
 ##### Connectors and Tasks
 
 To copy data between Kafka and another system, users create a Connector for the system they want to pull data from or push data to. Connectors come in two flavors: SourceConnectors import data from another system (e.g. JDBCSourceConnector would import a relational database into Kafka) and SinkConnectors export data (e.g. HDFSSinkConnector would export the contents of a Kafka topic to an HDFS file). Connectors do not perform any data copying themselves: their configuration describes the data to be copied, and the Connector is responsible for breaking that job into a set of Tasks that can be distributed to workers. These Tasks also come in two corresponding flavors: SourceTask and SinkTask. With an assignment in hand, each Task must copy its subset of the data to or from Kafka. In Kafka Connect, it should always be possible to frame these assignments as a set of input and output streams consisting of records with consistent schemas. Sometimes this mapping is obvious: each file in a set of log files can be considered a stream with each parsed line forming a record using the same schema and offsets stored as byte offsets in the file. In other cases it may require more effort to map to this model: a JDBC connector can map each table to a stream, but the offset is less clear. One possible mapping uses a timestamp column to generate queries incrementally returning new data, and the last queried timestamp can be used as the offset.
+
+> 为了在 Kafka 和其他系统之间拷贝数据，用户针对相应的系统创建连接器来拉取或者推送数据。连接器有两大特征：SourceConnectors 用于从其他系统导入数据（例如 JDBCSourceConnector 可以从关系型数据库导入到 Kafka），SinkConnectors 可以从 Kafka 中导出数据到指定系统（例如 HDFSSinkConnector 可以将 Kafka topic 中的内容导出为 HDFS 文件）。连接器自己不会拷贝任何数据：它们的配置定义了需要拷贝的数据，同时连接器会把工作分成一个个的任务分布到各个 worker。相应的，这些任务也可以分为两种：SourceTask 和 SinkTask。分配好以后，每个任务必须拷贝数据到 Kafka 或者从 Kafka 拷贝数据到其他系统。在 Kafka Connect 框架中，数据同步都可以标准化成由确定数据模型的记录组成的输入输出流任务。有时这个模型对应关系是很明显的：日志文件中的每个文件都可以当作一个数据流，每一行数据就是有确定模型和偏移量的一条记录，以 byte 形式存储在文件中。在其他场景中，就要花费更多的努力来构建这个模型：JDBC 连接器可以把每个表映射成一个个的数据流，但是这个偏移量属性就没那么清晰了。一个可行的映射关系是用时间戳列来查询获得增量新数据，同时这个最新的查询时间戳可以用来作为偏移量。
 
 ##### Streams and Records
 
