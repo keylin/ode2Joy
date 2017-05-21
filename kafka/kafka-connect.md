@@ -423,15 +423,18 @@ We'll cover the SourceConnector as a simple example. SinkConnector implementatio
 
 The easiest method to fill in is getTaskClass(), which defines the class that should be instantiated in worker processes to actually read the data:
 
+>最简单的办法是实现 getTaskClass()，这里定义了需要实例化的类，在 worker 进程中做数据读取：
+
 ```java
     @Override
-
         public Class<? extends Task> getTaskClass() {
             return FileStreamSourceTask.class;
             }
 ```
 
 We will define the FileStreamSourceTask class below. Next, we add some standard lifecycle methods, start() and stop():
+
+> 我们如下所示的定义 FileStreamSourceTask。接下来，我们新增一些标准的生命周期的方式，start() 和 stop()：
 
 ```java
     @Override
@@ -446,8 +449,6 @@ We will define the FileStreamSourceTask class below. Next, we add some standard 
 
             }
 
-            
-
     @Override
 
         public void stop() {
@@ -458,6 +459,8 @@ We will define the FileStreamSourceTask class below. Next, we add some standard 
 ```
 
 Finally, the real core of the implementation is in taskConfigs(). In this case we are only handling a single file, so even though we may be permitted to generate more tasks as per the maxTasks argument, we return a list with only one entry:
+
+>最后，真正关键的实现是在 taskConfigs()。在这例子中，我们只处理单个文件，所以尽管我们可以改变maxTasks参数来创建更多的任务，我们会返回一个只有一个入口的列表：
 
 ```java
     @Override
@@ -485,9 +488,14 @@ Finally, the real core of the implementation is in taskConfigs(). In this case w
 
 Although not used in the example, SourceTask also provides two APIs to commit offsets in the source system: commit and commitRecord. The APIs are provided for source systems which have an acknowledgement mechanism for messages. Overriding these methods allows the source connector to acknowledge messages in the source system, either in bulk or individually, once they have been written to Kafka. The commit API stores the offsets in the source system, up to the offsets that have been returned by poll. The implementation of this API should block until the commit is complete. The commitRecord API saves the offset in the source system for each SourceRecord after it is written to Kafka. As Kafka Connect will record offsets automatically, SourceTasks are not required to implement them. In cases where a connector does need to acknowledge messages in the source system, only one of the APIs is typically required. Even with multiple tasks, this method implementation is usually pretty simple. It just has to determine the number of input tasks, which may require contacting the remote service it is pulling data from, and then divvy them up. Because some patterns for splitting work among tasks are so common, some utilities are provided in ConnectorUtils to simplify these cases. Note that this simple example does not include dynamic input. See the discussion in the next section for how to trigger updates to task configs.
 
+> 尽管在这个示例中没有用到，但 SourceTask 提供了两个 API 用于提交数据源系统的偏移量：commit 和 commitRecord。这些 API 是为那些有消息标识机制的数据源系统准备的。一旦向 Kafka 写入成功，重写这个方法使 source 连接器能够在数据源系统批量或单个的标识消息。commit API 把偏移量信息存储在数据源系统，不断更新到已经拉取成功数据的最新偏移量。这个 API 的实现应该是阻塞的，直到 commit 完成。每一个 SourceRecord 写入kafka成功后， commitRecord 接口都会把 offset 保存到数据源系统。因为 Kafka connect 会自动记录偏移量，SourceTasks 不需要实现这些接口。只有当连接器确实需要在数据源系统里标识消息时，才需要实现这其中的某个API。尽管有多个任务，这个方法的实现也是很简单的。只要决定任务数量，哪些任务需要和拉取数据的远程服务交互，然后把任务均分一下。把工作划分成任务有很多常见的模式，所以在 ConnectorUtils 提供了一些常见工具方法来简化这些操作。注意，这个简单的示例没有动态输入。下面章节会讨论如何触发更新任务配置。
+
 ##### Task Example - Source Task
 
 Next we'll describe the implementation of the corresponding SourceTask. The implementation is short, but too long to cover completely in this guide. We'll use pseudo-code to describe most of the implementation, but you can refer to the source code for the full example. Just as with the connector, we need to create a class inheriting from the appropriate base Task class. It also has some standard lifecycle methods:
+
+>接下来我们会讲述相应的 SourceTask 实现。这个实现很简短，但还是无法在指南里完整描述。我们将使用伪代码来描述大多数的实现，但是你可以参考完整样例的源代码。就像 connector 一样，我们需要创建一个继承于相关的基础 task 类。这里也有一些标准的生命周期方法：
+
 ```java
     public class FileStreamSourceTask extends SourceTask {
            String filename;
@@ -514,6 +522,8 @@ Next we'll describe the implementation of the corresponding SourceTask. The impl
 ```
 
 These are slightly simplified versions, but show that that these methods should be relatively simple and the only work they should perform is allocating or freeing resources. There are two points to note about this implementation. First, the start() method does not yet handle resuming from a previous offset, which will be addressed in a later section. Second, the stop() method is synchronized. This will be necessary because SourceTasks are given a dedicated thread which they can block indefinitely, so they need to be stopped with a call from a different thread in the Worker. Next, we implement the main functionality of the task, the poll() method which gets events from the input system and returns a List<SourceRecord>:
+
+> 这些都是做了简化的版本，但是也表明这些方法应该是相对简单的，这些方法的功能只应该是申请或者释放资源。实现的时候，这里有两个地方需要注意。首先，start() 方法不会处理如何从上一个 offset 恢复，这个问题放在后面的章节。其次，stop() 方法是同步的。这么处理是有必要的，因为每个 SourceTask 都是专用的线程并且可以无限阻塞，所以需要 worker 中的其他线程来调用使其停止。接下来，我们实现这个 task 的主要功能——poll()，这个方法可以从输入系统获取事件然后包装成一个SourceRecord列表返回。
 
 ```java
     @Override
@@ -561,9 +571,13 @@ These are slightly simplified versions, but show that that these methods should 
 
 Again, we've omitted some details, but we can see the important steps: the poll() method is going to be called repeatedly, and for each call it will loop trying to read records from the file. For each line it reads, it also tracks the file offset. It uses this information to create an output SourceRecord with four pieces of information: the source partition (there is only one, the single file being read), source offset (byte offset in the file), output topic name, and output value (the line, and we include a schema indicating this value will always be a string). Other variants of the SourceRecord constructor can also include a specific output partition and a key. Note that this implementation uses the normal Java InputStream interface and may sleep if data is not available. This is acceptable because Kafka Connect provides each task with a dedicated thread. While task implementations have to conform to the basic poll() interface, they have a lot of flexibility in how they are implemented. In this case, an NIO-based implementation would be more efficient, but this simple approach works, is quick to implement, and is compatible with older versions of Java.
 
+>同样，我们在这省略了很多细节，但是我们能从这看到重要步骤:：poll() 方法会重复的被调用，每一次调用都会循环的尝试从文件中读取新记录。对于读取了的每一行，都会追踪在文件中的偏移量。连接器会根据这些信息创建一条 SourceRecord，SourceRecord 会包含四部分信息：源数据分片（这里只有一个文件读取，所以只有一个分片），源数据偏移量（在文件中比特偏移量），输出的 topic 名，还有输出值（行数据，还有声明数据为字符串的数据模型定义）。在其他的变体中，SourceRecord 构造器也可以指定要输出的分片和 key 值。注意，这个实现使用通常的 Java 输入流，当数据不可用的时候线程可能会挂起。这个处理是可以接受的，因为 Kafka Connect 中每个任务都有专用的线程。尽管 task 类的实现必须遵从基本的 poll() 方法接口，但在实现的时候还是有很大的灵活性。在这个例子中，非阻塞的IO 实现应该会更高效一点，但现在的实现方法也能工作，而且能快速实现，对老版本的 Java 也是兼容的。
+
 ##### Sink Tasks
 
 The previous section described how to implement a simple SourceTask. Unlike SourceConnector and SinkConnector, SourceTask and SinkTask have very different interfaces because SourceTask uses a pull interface and SinkTask uses a push interface. Both share the common lifecycle methods, but the SinkTask interface is quite different:
+
+>在之前的章节我们讲述了如何实现一个简单的 SourceTask。不像 SourceConnector 和 SinkConnector，SourceTask 和 SinkTask 的接口差异很大，SourceTask 用的是 pull 接口，而 SinkTask 用的是 push 接口。它们都有相同的生命周期方法，但是 SinkTask 接口缺很不一样。
 
 ```java
     public abstract class SinkTask implements Task {
@@ -580,6 +594,8 @@ The previous section described how to implement a simple SourceTask. Unlike Sour
 ```
 
 The SinkTask documentation contains full details, but this interface is nearly as simple as the SourceTask. The put() method should contain most of the implementation, accepting sets of SinkRecords, performing any required translation, and storing them in the destination system. This method does not need to ensure the data has been fully written to the destination system before returning. In fact, in many cases internal buffering will be useful so an entire batch of records can be sent at once, reducing the overhead of inserting events into the downstream data store. The SinkRecords contain essentially the same information as SourceRecords: Kafka topic, partition, offset and the event key and value. The flush() method is used during the offset commit process, which allows tasks to recover from failures and resume from a safe point such that no events will be missed. The method should push any outstanding data to the destination system and then block until the write has been acknowledged. The offsets parameter can often be ignored, but is useful in some cases where implementations want to store offset information in the destination store to provide exactly-once delivery. For example, an HDFS connector could do this and use atomic move operations to make sure the flush() operation atomically commits the data and offsets to a final location in HDFS.
+
+>
 
 ##### Resuming from Previous Offsets
 
