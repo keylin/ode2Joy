@@ -595,11 +595,13 @@ The previous section described how to implement a simple SourceTask. Unlike Sour
 
 The SinkTask documentation contains full details, but this interface is nearly as simple as the SourceTask. The put() method should contain most of the implementation, accepting sets of SinkRecords, performing any required translation, and storing them in the destination system. This method does not need to ensure the data has been fully written to the destination system before returning. In fact, in many cases internal buffering will be useful so an entire batch of records can be sent at once, reducing the overhead of inserting events into the downstream data store. The SinkRecords contain essentially the same information as SourceRecords: Kafka topic, partition, offset and the event key and value. The flush() method is used during the offset commit process, which allows tasks to recover from failures and resume from a safe point such that no events will be missed. The method should push any outstanding data to the destination system and then block until the write has been acknowledged. The offsets parameter can often be ignored, but is useful in some cases where implementations want to store offset information in the destination store to provide exactly-once delivery. For example, an HDFS connector could do this and use atomic move operations to make sure the flush() operation atomically commits the data and offsets to a final location in HDFS.
 
->
+>SinkTask 文档包含了更详细的文档，但是这个接口和 SourceTask 一样简单。put() 方法应该包含了大多数的实现，接收一串 SinkRecords、做些必要的转换，然后存储到目标系统。这个方法不需要返回值来确保数据是否成功写入目标系统。事实上，在大多数场景里都有必要设置一个内部的缓存区，这样数据记录可以累积起来做批处理，降低写入下游数据存储的压力。SinkRecords 包含了和 SourceRecords 大致相同的信息：Kafka topic, partition, offset 和 事件的键值。flush() 方法是在提交 offset 的时候调用的，commit 结果允许任务从失败的地方恢复，从安全的时间点恢复，以免事件记录。这个方法应该把未处理完成的数据推到目标系统，并且是阻塞的直到写入确认。偏移量参数一般是可以忽略的，但偏移量在有些场景是非常有用，比如有些实现希望在目标系统存储偏移量信息，以便确保数据投递且只投递一次的。例如，HDFS 连接器应该这样做，并且使用原子性的移动操作保证 flush() 操作原子性的提交数据和偏移量到最终的 HDFS。
 
 ##### Resuming from Previous Offsets
 
 The SourceTask implementation included a stream ID (the input filename) and offset (position in the file) with each record. The framework uses this to commit offsets periodically so that in the case of a failure, the task can recover and minimize the number of events that are reprocessed and possibly duplicated (or to resume from the most recent offset if Kafka Connect was stopped gracefully, e.g. in standalone mode or due to a job reconfiguration). This commit process is completely automated by the framework, but only the connector knows how to seek back to the right position in the input stream to resume from that location. To correctly resume upon startup, the task can use the SourceContext passed into its initialize() method to access the offset data. In initialize(), we would add a bit more code to read the offset (if it exists) and seek to that position:
+
+> SourceTask 的实现使每个 record 都包含一个 stream ID（输入文件名） 和偏移量（文件中的位置）。框架会使用这个周期性的提交进度，以便任务失败的时候，可以快速恢复并且尽量少的做重复处理和可能的重复（或者当 kafka connect 优雅的停止，需要从最近的偏移量恢复，例如单点模式或者是连机器需要重新配置）。这个提交进度的过程完全由框架自动处理，但是只有当连接器知道如何从输入流哪个正确的地方恢复。为了在启动的时候正确恢复，任务需要使用 SourceContext 把这些数据（包括偏移量信息）传递到 initialize() 方法。在 initialize() 方法中，我们应该添加一点嗲吗来读取偏移量信息，然后跳转到那个位置：
 
 ```java
         stream = new FileInputStream(filename);
@@ -619,9 +621,13 @@ The SourceTask implementation included a stream ID (the input filename) and offs
 
 Of course, you might need to read many keys for each of the input streams. The OffsetStorageReader interface also allows you to issue bulk reads to efficiently load all offsets, then apply them by seeking each input stream to the appropriate position.
 
+> 当然，对于每个输入流，你或许需要读取更多的 keys。 OffsetStorageReader 接口也允许你发布批量读取来高效的加载所有 offset，然后根据这些信息跳转到每个输入流正确的位置。
+
 ##### Dynamic Input/Output Streams
 
 Kafka Connect is intended to define bulk data copying jobs, such as copying an entire database rather than creating many jobs to copy each table individually. One consequence of this design is that the set of input or output streams for a connector can vary over time. Source connectors need to monitor the source system for changes, e.g. table additions/deletions in a database. When they pick up changes, they should notify the framework via the ConnectorContext object that reconfiguration is necessary. For example, in a SourceConnector:
+
+> Kafka Connect 设计来处理批量的数据拷贝工作，例如拷贝一个数据库而不是创建多个工作单元来分别处理每个表。这个设计带来的一个结果就是处理一系列的输入和输出流在时间上差异很大。当获取到变更时，他们需要通过 ConnectorContext 对象来通知框架重新配置。例如，在 SourceConnector 中：
 
 ```java
         if (inputsChanged())
@@ -630,9 +636,13 @@ Kafka Connect is intended to define bulk data copying jobs, such as copying an e
 
 The framework will promptly request new configuration information and update the tasks, allowing them to gracefully commit their progress before reconfiguring them. Note that in the SourceConnector this monitoring is currently left up to the connector implementation. If an extra thread is required to perform this monitoring, the connector must allocate it itself. Ideally this code for monitoring changes would be isolated to the Connector and tasks would not need to worry about them. However, changes can also affect tasks, most commonly when one of their input streams is destroyed in the input system, e.g. if a table is dropped from a database. If the Task encounters the issue before the Connector, which will be common if the Connector needs to poll for changes, the Task will need to handle the subsequent error. Thankfully, this can usually be handled simply by catching and handling the appropriate exception. SinkConnectors usually only have to handle the addition of streams, which may translate to new entries in their outputs (e.g., a new database table). The framework manages any changes to the Kafka input, such as when the set of input topics changes because of a regex subscription. SinkTasks should expect new input streams, which may require creating new resources in the downstream system, such as a new table in a database. The trickiest situation to handle in these cases may be conflicts between multiple SinkTasks seeing a new input stream for the first time and simultaneously trying to create the new resource. SinkConnectors, on the other hand, will generally require no special code for handling a dynamic set of streams.
 
+> 框架会及时的请求新的配置信息然后更新任务，在重新配置之前需保证他们正确的完成进度提交。注意，SourceConnector 的监听器目前是在 connector 外部实现的。如果需要单独的线程来做监听，connector 必须自己分配任务。理想情况下，这些监控变更的代码会与Connector分开，任务也不需要关心这些。然而，改变也会影响任务，通常一个输入系统的输入流被销毁，例如一个表从数据库中删除。如果任务在 connector 之前先遇到这个问题（当Connector需要主动拉取变更时，这种场景很常见 ），那任务就要处理随后的一系列报错。幸运的是，这个通常可以以捕获相应异常的方式来处理。SinkConnectors 一般只需要处理流数据增加的情况，即输出到新的目标（例如一个新的数据库表）。这个框架处理输入到 Kafka 的所有变更，例如当基于正则表达式订阅的输入 topic 的数量变更。SinkTasks 应该能处理新的输入流，而且这个新的输入流需要在下游系统创建的新的资源，例如在数据库中创建一个新表。处理这些情况最棘手的地方在于，有可能多个任务在同一时间监测到新的输入流，然后同时去创建新的资源，造成冲突。不过 SinkConnectors 通常不需要额外的特殊代码来处理动态的输入流。
+
 ##### Connect Configuration Validation
 
 Kafka Connect allows you to validate connector configurations before submitting a connector to be executed and can provide feedback about errors and recommended values. To take advantage of this, connector developers need to provide an implementation of config() to expose the configuration definition to the framework. The following code in FileStreamSourceConnector defines the configuration and exposes it to the framework.
+
+> Kafka Connect 允许你在提交连接器配置前校验参数配置，然后返回错误内容和建议的参数值。要利用这个特性，连接器开发者需要实现 config() 方法把配置定义暴露给框架。下面的代码就是 FileStreamSourceConnector 定义的配置并暴露给了框架。
 
 ```java
         private static final ConfigDef CONFIG_DEF = new ConfigDef()
@@ -653,9 +663,13 @@ Kafka Connect allows you to validate connector configurations before submitting 
 
 ConfigDef class is used for specifying the set of expected configurations. For each configuration, you can specify the name, the type, the default value, the documentation, the group information, the order in the group, the width of the configuration value and the name suitable for display in the UI. Plus, you can provide special validation logic used for single configuration validation by overriding the Validator class. Moreover, as there may be dependencies between configurations, for example, the valid values and visibility of a configuration may change according to the values of other configurations. To handle this, ConfigDef allows you to specify the dependents of a configuration and to provide an implementation of Recommender to get valid values and set visibility of a configuration given the current configuration values. Also, the validate() method in Connector provides a default validation implementation which returns a list of allowed configurations together with configuration errors and recommended values for each configuration. However, it does not use the recommended values for configuration validation. You may provide an override of the default implementation for customized configuration validation, which may use the recommended values.
 
+> ConfigDef 类用于指定需要的配置项。对每一个配置，你能指定名字、类型和默认值，文档信息，配置集（high、medium、low）别信息，所在配置集的级别，参数值的大小和在前端显示的名字。此外，你能以重写 Validator 类的方式，针对某些配置项提供特殊的校验逻辑。更进一步，配置项之间可能还有互相依赖的关系，例如，一个配置项的参数值是否合理或者是否可见会因为另一个配置项的值改变而不同。为了处理这种情况，ConfigDef 允许你指定配置的依赖的关系，然后提供 Recommender 的实现来获得有效的值，根据当前的配置值来设置参数的可见性。当然，连接器中的 validate()方法也提供了默认的实现，这个实现会返回一个配置列表，包含每个配置的错误信息和建议参数。然而，推荐的配置参数值不需要校验。你或许重写默认实现提供一个自定义的配置校验，在这个校验中使用建议的参数值。
+
 ##### Working with Schemas
 
 The FileStream connectors are good examples because they are simple, but they also have trivially structured data -- each line is just a string. Almost all practical connectors will need schemas with more complex data formats. To create more complex data, you'll need to work with the Kafka Connect data API. Most structured records will need to interact with two classes in addition to primitive types: Schema and Struct. The API documentation provides a complete reference, but here is a simple example creating a Schema and Struct:
+
+> FileStream 连接器是一个很好的例子，因为它简单，但是它也有琐细的结构化数据——每一行都是一串字符串。几乎所有的实战连接器都需要数据模式来处理复杂的数据类型。为了创建更复杂的数据，你需要和Kafka Connect的数据接口打交道。大多数结构化的数据除了基本的数据类型还需要和两个类：Schema 和 Struct。API 文档提供了完整的参考资料，但是这有一个创建 Schema 和 Struct 的简单例子：
 
 ```java
     Schema schema = SchemaBuilder.struct().name(NAME)
